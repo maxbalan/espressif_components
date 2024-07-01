@@ -1,4 +1,5 @@
 name: WifiHelper
 description: WifiHelper
-url: https://github.com/maxbalan/espressif32_wifi
+url: https://github.com/maxbalan/espressif_components/tree/master/components/wifi_helper
+repository: https://github.com/maxbalan/espressif_components
 version: 1.0.0
