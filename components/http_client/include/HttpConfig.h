@@ -29,17 +29,21 @@ typedef struct {
     cJSON* json;
 } http_client_json_response;
 
-#define JSON_RESPONSE_NULL(VOID) { \
+#define JSON_RESPONSE_NULL()   \
+    {                          \
         .http_status_code = 0, \
-        .json = NULL \
+        .json = NULL           \
     }
 
-#define HTTP_CLIENT_CONFIG_DEFAULT(VOID) { \
+#define HTTP_CLIENT_CONFIG_DEFAULT() \
+    { \
         .url = NULL, \
         .method = HTTP_METHOD_GET, \
-        .file_location = NULL, \
         .response_handler = { \
             .type = NONE, \
-            .size = 1024, \
-        } \
+            .size = 1024 \
+        }, \
+        .file_location = { \
+            .path = NULL \
+        }, \
     }

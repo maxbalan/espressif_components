@@ -139,6 +139,8 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     long content_length = ftell(file);
     fseek(file, 0, SEEK_SET);
 
+    ESP_LOGI(TAG, "upload size: %ld", content_length);
+
     // Open the HTTP connection
     esp_err_t http_ret = esp_http_client_open(client, (int)content_length);
     if (http_ret != ESP_OK) {
@@ -152,9 +154,9 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     // Read and send the file
     char buffer[1024];
     size_t bytes_read;
-
     int counter = 0;
     http_ret = 0;
+    
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         http_ret = esp_http_client_write(client, buffer, bytes_read);
         if (http_ret == -1) {

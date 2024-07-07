@@ -1,5 +1,6 @@
 {
      "files.associations": {
           "httphelper.h": "c"
-     }
+     },
+     "idf.adapterTargetName": "esp32s3"
 }
