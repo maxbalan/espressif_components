@@ -169,8 +169,13 @@ http_client_json_response http_client_upload_file(http_client_config config) {
         }
     }
 
+    //close file as no longer needed
+    fclose(file);
+
     if (http_ret != 0) {
         ESP_LOGE(TAG, "file upload failed: %d", http_ret);
+        
+        esp_http_client_cleanup(client);
 
         return response;
     }
@@ -184,7 +189,6 @@ http_client_json_response http_client_upload_file(http_client_config config) {
 
     // Clean up
     esp_http_client_cleanup(client);
-    fclose(file);
 
     return response;
 }
