@@ -123,11 +123,15 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     http_client_json_response response = JSON_RESPONSE_NULL();
 
     // open file for read
+    ESP_LOGI(TAG, "Opening file [%s]", config.file_location.path);
+
     FILE* file = fopen(config.file_location.path, "rb");
     if (file == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
         return response;
     }
+
+    ESP_LOGI(TAG, "Init http connection");
 
     esp_http_client_handle_t client = init_connection(config);
     if (client == NULL) {

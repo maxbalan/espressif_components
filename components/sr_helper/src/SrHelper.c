@@ -129,6 +129,7 @@ void feed_task(void *arg) {
 
     ESP_LOGI(TAG, "Feeding task stopped");
 
+    is_feed_active = true;
     trigger_event(SR_FEED_STOP);
     vTaskDelete(NULL);
 }
