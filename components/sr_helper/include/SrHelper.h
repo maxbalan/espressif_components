@@ -13,6 +13,8 @@
 #include "model_path.h"
 #include "esp_afe_sr_models.h"
 #include "esp_afe_sr_iface.h" 
+#include "esp_event.h"
+#include "esp_mac.h"
 
 #define SAMPLE_RATE 16000
 #define BYTE_RATE (SAMPLE_RATE * (32 / 8)) * 1
@@ -42,7 +44,5 @@ typedef enum {
     RECORDING_SUCCESS,
     RECORDING_FAIL,
 } sr_event_t;
-
-ESP_EVENT_DECLARE_BASE(SR_EVENT);
 
 void register_callback(esp_event_handler_t callback);

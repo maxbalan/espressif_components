@@ -4,11 +4,14 @@
 static const char *TAG = "SR >>> ";
 // #endif
 
+ESP_EVENT_DECLARE_BASE(SR_EVENT);
+ESP_EVENT_DEFINE_BASE(SR_EVENT);
+
 static esp_afe_sr_iface_t *afe_handle = NULL;
 static esp_afe_sr_data_t *afe_data = NULL;
 i2s_chan_handle_t rx_handle = NULL;
 
-bool continue_feed = true;
+bool is_feed_active = true;
 bool continue_wakeword_detection = true;
 bool wakeword_detection_stop = true;
 
@@ -35,7 +38,7 @@ void trigger_event(sr_event_t event) {
 void record_task(void *arg) {
     char *filePath = arg;
     int flash_wr_size = 0;
-    uint32_t flash_rec_time = BYTE_RATE * 5;
+    uint32_t flash_rec_time = BYTE_RATE * 2;
     const wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(flash_rec_time, 16, SAMPLE_RATE, 1);
 
     struct stat st;
@@ -49,7 +52,7 @@ void record_task(void *arg) {
     ESP_LOGI(TAG, "Opening file for recording");
     FILE *f = fopen(filePath, "a");
     if (f == NULL) {
-        ESP_LOGE(TAG, "Failed to open file for writing");
+        ESP_LOGE(TAG, "Failed to open file for writing [%s]", filePath);
         trigger_event(RECORDING_FAIL);
         return;
     }
@@ -73,7 +76,7 @@ void record_task(void *arg) {
         flash_wr_size += res->data_size;
     }
 
-    ESP_LOGI(TAG, "Recording done!");
+    ESP_LOGI(TAG, "Recording done [%s]", filePath);
 
     trigger_event(RECORDING_SUCCESS);
     fclose(f);
@@ -85,14 +88,14 @@ void wav_record(char *filePath) {
 }
 
 // --------------------- feed process ----------------------------------------
-esp_err_t bsp_get_feed_data(int16_t* buffer, int buffer_len) {
+esp_err_t bsp_get_feed_data(int16_t *buffer, int buffer_len) {
     esp_err_t ret = ESP_OK;
     size_t bytes_read;
     int audio_chunksize = buffer_len / (sizeof(int32_t));
 
     ret = i2s_channel_read(rx_handle, buffer, buffer_len, &bytes_read, portMAX_DELAY);
 
-    int32_t* tmp_buff = buffer;
+    int32_t *tmp_buff = buffer;
     for (int i = 0; i < audio_chunksize; i++) {
         tmp_buff[i] = tmp_buff[i] >> 14;
         // 32:8 is the effective bit, 8:0 is the lower 8 bits, all are
@@ -114,7 +117,7 @@ void feed_task(void *arg) {
 
     trigger_event(SR_FEED_START);
 
-    while (continue_feed) {
+    while (is_feed_active) {
         bsp_get_feed_data(i2s_buff, audio_chunksize * sizeof(int16_t) * feed_channel);
         afe_handle->feed(afe_data, i2s_buff);
     }
@@ -135,14 +138,14 @@ void start_feed() {
 }
 
 void stop_feed() {
-    continue_feed = false;
+    is_feed_active = false;
 }
 
 // --------------------- wakeword process ----------------------------------------
 
 void wakeup_word_detect_task(void *arg) {
     esp_afe_sr_data_t *afe_data = arg;
-//     int detect_flag = false;
+    //     int detect_flag = false;
     // int afe_chunksize = afe_handle->get_fetch_chunksize(afe_data);
 
     ESP_LOGI(TAG, "wakeup word detect start\n");
@@ -228,5 +231,6 @@ esp_afe_sr_iface_t sr_init(afe_config_t config, i2s_std_gpio_config_t micConfig)
     afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
     afe_data = afe_handle->create_from_config(&config);
 
+    trigger_event(SR_SYSTEM_READY);
     return *afe_handle;
 }

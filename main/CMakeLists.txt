@@ -1,6 +1,7 @@
 set(requires
      esp-sr
      driver
+     esp_event
      wifi_helper
      http_helper
      sdcard_helper

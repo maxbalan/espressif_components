@@ -8,7 +8,9 @@
           "stdio.h": "c",
           "format_wav.h": "c",
           "model_path.h": "c",
-          "esp_afe_sr_models.h": "c"
+          "esp_afe_sr_models.h": "c",
+          "esp_afe_sr_iface.h": "c"
      },
-     "idf.adapterTargetName": "esp32s3"
+     "idf.adapterTargetName": "esp32s3",
+     "idf.flashType": "UART"
 }
