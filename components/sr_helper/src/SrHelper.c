@@ -38,7 +38,7 @@ void trigger_event(sr_event_t event) {
 void record_task(void *arg) {
     char *filePath = arg;
     int flash_wr_size = 0;
-    uint32_t flash_rec_time = BYTE_RATE * 2;
+    uint32_t flash_rec_time = BYTE_RATE * 1;
     const wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(flash_rec_time, 16, SAMPLE_RATE, 1);
 
     struct stat st;
