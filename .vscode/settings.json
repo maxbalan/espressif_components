@@ -1,6 +1,14 @@
 {
      "files.associations": {
-          "httphelper.h": "c"
+          "httphelper.h": "c",
+          "srhelper.h": "c",
+          "stat.h": "c",
+          "unistd.h": "c",
+          "stdlib.h": "c",
+          "stdio.h": "c",
+          "format_wav.h": "c",
+          "model_path.h": "c",
+          "esp_afe_sr_models.h": "c"
      },
      "idf.adapterTargetName": "esp32s3"
 }

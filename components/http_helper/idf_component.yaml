@@ -1,0 +1,5 @@
+name: http_helper
+description: HttpClient
+url: https://github.com/maxbalan/espressif_components/tree/master/components/http_helper
+repository: https://github.com/maxbalan/espressif_components
+version: 1.0.0
