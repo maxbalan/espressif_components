@@ -9,14 +9,19 @@ static const char* TAG = "Http Client >>> ";
 #endif
 
 // private methods
-esp_http_client_handle_t init_connection(http_client_config config) {
+esp_http_client_handle_t init_connection(http_client_config config, int content_length) {
     esp_http_client_config_t clientConfig = {
         .url = config.url,
         .method = config.method,
     };
-    esp_http_client_handle_t client = esp_http_client_init(&clientConfig);
 
-    esp_err_t err = esp_http_client_open(client, 0);
+    esp_http_client_handle_t client = esp_http_client_init(&clientConfig);
+    if (client == NULL) {
+        ESP_LOGE(TAG, "Failed to initialize HTTP client");
+        return NULL;
+    }
+
+    esp_err_t err = esp_http_client_open(client, content_length);
     if (err != ESP_OK) {
         ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(err));
         esp_http_client_cleanup(client);
@@ -79,7 +84,7 @@ void http_client_download_file(http_client_config config) {
         return;
     }
 
-    esp_http_client_handle_t client = init_connection(config);
+    esp_http_client_handle_t client = init_connection(config, 0);
     if (client == NULL) {
         return;
     }
@@ -103,7 +108,7 @@ void http_client_download_file(http_client_config config) {
 
 http_client_json_response http_client_request(http_client_config config) {
     http_client_json_response response = JSON_RESPONSE_NULL();
-    esp_http_client_handle_t client = init_connection(config);
+    esp_http_client_handle_t client = init_connection(config, 0);
     if (client == NULL) {
         return response;
     }
@@ -133,11 +138,6 @@ http_client_json_response http_client_upload_file(http_client_config config) {
 
     ESP_LOGI(TAG, "Init http connection");
 
-    esp_http_client_handle_t client = init_connection(config);
-    if (client == NULL) {
-        return response;
-    }
-
     // calculate file size
     fseek(file, 0, SEEK_END);
     long content_length = ftell(file);
@@ -146,12 +146,8 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     ESP_LOGI(TAG, "upload size: %ld", content_length);
 
     // Open the HTTP connection
-    esp_err_t http_ret = esp_http_client_open(client, (int)content_length);
-    if (http_ret != ESP_OK) {
-        ESP_LOGE(TAG, "Failed to open HTTP connection: %s", esp_err_to_name(http_ret));
-        fclose(file);
-        esp_http_client_cleanup(client);
-        // Handle error
+    esp_http_client_handle_t client = init_connection(config, (int)content_length);
+    if (client == NULL) {
         return response;
     }
 
@@ -159,11 +155,11 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     char buffer[1024];
     size_t bytes_read;
     int counter = 0;
-    http_ret = 0;
-    
+    esp_err_t http_ret = 0;
+
     while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
         http_ret = esp_http_client_write(client, buffer, bytes_read);
-        if (http_ret == -1) {
+        if (http_ret < 0) {
             ESP_LOGE(TAG, "Failed to send chunk: %s", esp_err_to_name(http_ret));
             // Handle error
             break;
@@ -173,12 +169,12 @@ http_client_json_response http_client_upload_file(http_client_config config) {
         }
     }
 
-    //close file as no longer needed
+    // close file as no longer needed
     fclose(file);
 
-    if (http_ret != 0) {
+    if (http_ret < 0) {
         ESP_LOGE(TAG, "file upload failed: %d", http_ret);
-        
+
         esp_http_client_cleanup(client);
 
         return response;
