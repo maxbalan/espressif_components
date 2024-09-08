@@ -52,6 +52,6 @@ typedef struct {
 typedef enum {
     FILE_UPLOAD_SUCCESS = 0,
     FILE_UPLOAD_FAIL,
-} sr_event_t;
+} http_event_t;
 
 void register_callback(esp_event_handler_t callback, int32_t event_id);

@@ -19,7 +19,7 @@ void register_callback(esp_event_handler_t callback, int32_t event_id) {
                                                         NULL));
 }
 
-void trigger_event(sr_event_t event, char* event_data) {
+void trigger_event(http_event_t event, char* event_data) {
     int l = 0;
     if (event_data != NULL) {
         l = strlen(event_data) + 1;
