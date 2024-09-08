@@ -45,4 +45,4 @@ typedef enum {
     RECORDING_FAIL,
 } sr_event_t;
 
-void register_callback(esp_event_handler_t callback);
+void register_callback(esp_event_handler_t callback, int32_t event_id);

@@ -16,9 +16,9 @@ bool continue_wakeword_detection = true;
 bool wakeword_detection_stop = true;
 
 // --------------------- callback process ----------------------------------------
-void register_callback(esp_event_handler_t callback) {
+void register_callback(esp_event_handler_t callback, int32_t event_id) {
     ESP_ERROR_CHECK(esp_event_handler_instance_register(SR_EVENT,
-                                                        ESP_EVENT_ANY_ID,
+                                                        event_id,
                                                         callback,
                                                         NULL,
                                                         NULL));

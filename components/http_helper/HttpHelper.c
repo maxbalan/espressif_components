@@ -8,6 +8,32 @@
 static const char* TAG = "Http Client >>> ";
 #endif
 
+// --------------------- callback process ----------------------------------------
+ESP_EVENT_DECLARE_BASE(HTTP_EVENT);
+ESP_EVENT_DEFINE_BASE(HTTP_EVENT);
+void register_callback(esp_event_handler_t callback, int32_t event_id) {
+    ESP_ERROR_CHECK(esp_event_handler_instance_register(HTTP_EVENT,
+                                                        event_id,
+                                                        callback,
+                                                        NULL,
+                                                        NULL));
+}
+
+void trigger_event(sr_event_t event, char* event_data) {
+    int l = 0;
+    if (event_data != NULL) {
+        l = strlen(event_data) + 1;
+    }
+
+    esp_event_post(
+        HTTP_EVENT,    // Event base
+        event,         // Event ID
+        event_data,    // Event data (if any)
+        l,             // Event data size
+        portMAX_DELAY  // Max delay to post the event
+    );
+}
+
 // private methods
 esp_http_client_handle_t init_connection(http_client_config config, int content_length) {
     esp_http_client_config_t clientConfig = {
@@ -180,7 +206,7 @@ http_client_json_response http_client_upload_file(http_client_config config) {
         return response;
     }
 
-    ESP_LOGI(TAG, "uploaded Done: %d", (counter - (int)content_length));
+    ESP_LOGI(TAG, "uploaded done: %d", (counter - (int)content_length));
 
     // read response if one is expected
     if (config.response_handler.type == JSON) {
