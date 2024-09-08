@@ -11,15 +11,16 @@ static const char* TAG = "Http Client >>> ";
 // --------------------- callback process ----------------------------------------
 ESP_EVENT_DECLARE_BASE(HTTP_EVENT);
 ESP_EVENT_DEFINE_BASE(HTTP_EVENT);
-void register_callback(esp_event_handler_t callback, int32_t event_id) {
+
+void http_register_callback(esp_event_handler_t callback) {
     ESP_ERROR_CHECK(esp_event_handler_instance_register(HTTP_EVENT,
-                                                        event_id,
+                                                        ESP_EVENT_ANY_ID,
                                                         callback,
                                                         NULL,
                                                         NULL));
 }
 
-void trigger_event(http_event_t event, char* event_data) {
+void http_trigger_event(http_event_t event, char* event_data) {
     int l = 0;
     if (event_data != NULL) {
         l = strlen(event_data) + 1;
@@ -59,14 +60,14 @@ esp_http_client_handle_t init_connection(http_client_config config, int content_
 }
 
 http_client_json_response read_json_response(response_handler config, esp_http_client_handle_t client) {
-    int64_t total_len = esp_http_client_fetch_headers(client);
-    ESP_LOGI(TAG, "response body size %jd", total_len);
+    int64_t resp_length = esp_http_client_fetch_headers(client);
+    ESP_LOGI(TAG, "response body size %jd", resp_length);
 
     http_client_json_response response = JSON_RESPONSE_NULL();
 
     // check if response is of the expected size
-    if (total_len > config.size) {
-        ESP_LOGE(TAG, "response body is too large [ %jd ] expected [ %d ]", total_len, config.size);
+    if (resp_length > config.size) {
+        ESP_LOGE(TAG, "response body is too large [ %jd ] expected [ %d ]", resp_length, config.size);
         esp_http_client_cleanup(client);
         return response;
     }
@@ -74,27 +75,20 @@ http_client_json_response read_json_response(response_handler config, esp_http_c
     int status_code = esp_http_client_get_status_code(client);
     ESP_LOGI(TAG, "response status code: %d", status_code);
 
-    // read json
-    char buffer[config.size];
-    esp_http_client_read(client, buffer, sizeof(buffer));
-
-    // Read the response from the server
-    int64_t resp_length = esp_http_client_fetch_headers(client);
-
     if (resp_length > 0) {
         char response_buffer[resp_length + 1];
         int bytes_received = esp_http_client_read_response(client, response_buffer, (int)resp_length);
         if (bytes_received <= 0) {
-            ESP_LOGE(TAG, "Failed to read response");
+            ESP_LOGE(TAG, "failed to read response");
             // Handle error
         } else {
             response_buffer[bytes_received] = '\0';  // Null-terminate the response
-            ESP_LOGI(TAG, "Received response: %s", response_buffer);
+            ESP_LOGI(TAG, "received response: %s", response_buffer);
 
-            response.json = cJSON_Parse(buffer);
+            response.json = cJSON_Parse(response_buffer);
         }
     } else {
-        ESP_LOGE(TAG, "Failed to read response headers");
+        ESP_LOGE(TAG, "failed to read response headers");
         // Handle error
     }
 
@@ -191,7 +185,7 @@ http_client_json_response http_client_upload_file(http_client_config config) {
             break;
         } else {
             counter += bytes_read;
-            ESP_LOGE(TAG, "uploaded: %d", counter);
+            ESP_LOGI(TAG, "uploaded: %d", counter);
         }
     }
 
@@ -206,7 +200,7 @@ http_client_json_response http_client_upload_file(http_client_config config) {
         return response;
     }
 
-    ESP_LOGI(TAG, "uploaded done: %d", (counter - (int)content_length));
+    ESP_LOGI(TAG, "uploaded done: %d bytes left to upload", (counter - (int)content_length));
 
     // read response if one is expected
     if (config.response_handler.type == JSON) {

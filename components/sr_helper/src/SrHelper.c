@@ -16,15 +16,15 @@ bool continue_wakeword_detection = true;
 bool wakeword_detection_stop = true;
 
 // --------------------- callback process ----------------------------------------
-void register_callback(esp_event_handler_t callback, int32_t event_id) {
+void sr_register_callback(esp_event_handler_t callback) {
     ESP_ERROR_CHECK(esp_event_handler_instance_register(SR_EVENT,
-                                                        event_id,
+                                                        ESP_EVENT_ANY_ID,
                                                         callback,
                                                         NULL,
                                                         NULL));
 }
 
-void trigger_event(sr_event_t event) {
+void sr_trigger_event(sr_event_t event) {
     esp_event_post(
         SR_EVENT,      // Event base
         event,         // Event ID
@@ -53,7 +53,7 @@ void record_task(void *arg) {
     FILE *f = fopen(filePath, "a");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing [%s]", filePath);
-        trigger_event(RECORDING_FAIL);
+        sr_trigger_event(RECORDING_FAIL);
         return;
     }
 
@@ -68,7 +68,7 @@ void record_task(void *arg) {
 
         if (!res || res->ret_value == ESP_FAIL) {
             ESP_LOGI(TAG, "data fetch error\n");
-            trigger_event(RECORDING_FAIL);
+            sr_trigger_event(RECORDING_FAIL);
             break;
         }
 
@@ -78,7 +78,7 @@ void record_task(void *arg) {
 
     ESP_LOGI(TAG, "Recording done [%s]", filePath);
 
-    trigger_event(RECORDING_SUCCESS);
+    sr_trigger_event(RECORDING_SUCCESS);
     fclose(f);
     vTaskDelete(NULL);
 }
@@ -115,7 +115,7 @@ void feed_task(void *arg) {
     int16_t *i2s_buff = malloc(audio_chunksize * sizeof(int16_t) * feed_channel);
     assert(i2s_buff);
 
-    trigger_event(SR_FEED_START);
+    sr_trigger_event(SR_FEED_START);
 
     while (is_feed_active) {
         bsp_get_feed_data(i2s_buff, audio_chunksize * sizeof(int16_t) * feed_channel);
@@ -130,7 +130,7 @@ void feed_task(void *arg) {
     ESP_LOGI(TAG, "Feeding task stopped");
 
     is_feed_active = true;
-    trigger_event(SR_FEED_STOP);
+    sr_trigger_event(SR_FEED_STOP);
     vTaskDelete(NULL);
 }
 
@@ -151,7 +151,7 @@ void wakeup_word_detect_task(void *arg) {
 
     ESP_LOGI(TAG, "wakeup word detect start\n");
 
-    trigger_event(SR_WAKEWORD_START);
+    sr_trigger_event(SR_WAKEWORD_START);
     while (true && continue_wakeword_detection) {
         afe_fetch_result_t *res = afe_handle->fetch(afe_data);
         if (!res || res->ret_value == ESP_FAIL) {
@@ -162,7 +162,7 @@ void wakeup_word_detect_task(void *arg) {
         if (res->wakeup_state == WAKENET_DETECTED) {
             ESP_LOGI(TAG, "WAKEWORD DETECTED\n");
 
-            trigger_event(SR_WAKEWORD_DETECTED);
+            sr_trigger_event(SR_WAKEWORD_DETECTED);
 
             // stop task if wakeup word was detected
             if (wakeword_detection_stop) {
@@ -173,7 +173,7 @@ void wakeup_word_detect_task(void *arg) {
 
     ESP_LOGI(TAG, "wakeup word detect exit\n");
 
-    trigger_event(SR_WAKEWORD_STOP);
+    sr_trigger_event(SR_WAKEWORD_STOP);
     vTaskDelete(NULL);
 }
 
@@ -232,6 +232,6 @@ esp_afe_sr_iface_t sr_init(afe_config_t config, i2s_std_gpio_config_t micConfig)
     afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
     afe_data = afe_handle->create_from_config(&config);
 
-    trigger_event(SR_SYSTEM_READY);
+    sr_trigger_event(SR_SYSTEM_READY);
     return *afe_handle;
 }

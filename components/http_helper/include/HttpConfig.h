@@ -54,4 +54,4 @@ typedef enum {
     FILE_UPLOAD_FAIL,
 } http_event_t;
 
-void register_callback(esp_event_handler_t callback, int32_t event_id);
+void http_register_callback(esp_event_handler_t callback);
