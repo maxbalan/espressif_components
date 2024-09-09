@@ -6,6 +6,7 @@ set(requires
      http_helper
      sdcard_helper
      sr_helper
+     mqtt
     )
 
 

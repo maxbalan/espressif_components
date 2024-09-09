@@ -2,4 +2,4 @@
 dependencies:
   espressif/esp-sr: "==1.7.1"
   idf: "==5.2.1"
-  
+  espressif/mqtt: "*"
