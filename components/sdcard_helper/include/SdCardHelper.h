@@ -2,6 +2,8 @@
 #include "esp_vfs_fat.h"
 #include "sdmmc_cmd.h"
 #include "errno.h"
+#ifndef __sdcard_h__
+#define __sdcard_h__
 
 typedef struct pin_config {
     int miso;
@@ -25,6 +27,8 @@ struct SdCard {
 };
 
 typedef struct SdCard SdCard;
+
+#endif
 
 SdCard sdcard_mount(sdcard_config sdcard_config);
 
