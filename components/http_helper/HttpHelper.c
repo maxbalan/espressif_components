@@ -1,12 +1,6 @@
 #include "HttpHelper.h"
 
-#ifndef DEBUG_ENABLED
-#define DEBUG_ENABLED
-#endif
-
-#ifdef DEBUG_ENABLED
 static const char* TAG = "Http Client >>> ";
-#endif
 
 // --------------------- callback process ----------------------------------------
 ESP_EVENT_DECLARE_BASE(HTTP_EVENT);
@@ -98,7 +92,7 @@ http_client_json_response read_json_response(response_handler config, esp_http_c
 }
 
 void http_client_download_file(http_client_config config) {
-    FILE* f = fopen(config.file_location.path, "w");
+    FILE* f = fopen(config.file_location.path, "wb");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing");
         return;
@@ -112,14 +106,27 @@ void http_client_download_file(http_client_config config) {
     int64_t total_len = esp_http_client_fetch_headers(client);
     ESP_LOGI(TAG, "LEN %jd", total_len);
 
-    char buffer[2048];
-    int read_len;
-
-    while ((read_len = esp_http_client_read(client, buffer, sizeof(buffer))) > 0) {
-        fwrite(buffer, 1, read_len, f);
-        // ESP_LOGI(TAG, "Remaining %d", remaining);
+    // Dynamically allocate buffer so it can go to PSRAM
+    size_t buffer_size = 2048;
+    char* buffer = (char*)malloc(buffer_size);
+    if (buffer == NULL) {
+        ESP_LOGE(TAG, "Failed to allocate buffer");
+        fclose(f);
+        esp_http_client_cleanup(client);
+        return;
     }
 
+    int read_len;
+    while ((read_len = esp_http_client_read(client, buffer, buffer_size)) > 0) {
+        fwrite(buffer, 1, read_len, f);
+
+        if (config.enable_read_logs) {
+            ESP_LOGI(TAG, "read bytes %d", read_len);
+        }
+    }
+
+    // Free the buffer after use
+    free(buffer);
     fclose(f);
     esp_http_client_cleanup(client);
 

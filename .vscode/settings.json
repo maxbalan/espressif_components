@@ -11,7 +11,8 @@
           "esp_afe_sr_models.h": "c",
           "esp_afe_sr_iface.h": "c",
           "sdcardhelper.h": "c",
-          "mqtthelper.h": "c"
+          "mqtthelper.h": "c",
+          "errno.h": "c"
      },
      "idf.adapterTargetName": "esp32s3",
      "idf.flashType": "UART"

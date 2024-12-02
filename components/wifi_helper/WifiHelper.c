@@ -30,6 +30,7 @@ static void wifi_event_handler(void *arg,
 }
 
 void connectWifi(wifi_config_t wifiConfig) {
+    ESP_LOGI(TAG, "connecting WIFI SSID:%s password:%s", wifiConfig.sta.ssid, wifiConfig.sta.password);
     esp_event_loop_create_default();
 
     ESP_ERROR_CHECK(esp_netif_init());

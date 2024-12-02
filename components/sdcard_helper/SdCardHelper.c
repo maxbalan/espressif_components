@@ -24,6 +24,7 @@ SdCard sdcard_mount(sdcard_config config) {
 
     sdmmc_host_t host = SDSPI_HOST_DEFAULT();
     host.max_freq_khz = config.max_req_khz;
+    host.command_timeout_ms = 3000;
 
     spi_bus_config_t bus_cfg = {
         .mosi_io_num = config.pin_mode.mosi,
@@ -31,7 +32,7 @@ SdCard sdcard_mount(sdcard_config config) {
         .sclk_io_num = config.pin_mode.clk,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 4000,
+        .max_transfer_sz = 4092,
     };
 
     ret = spi_bus_initialize(host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);

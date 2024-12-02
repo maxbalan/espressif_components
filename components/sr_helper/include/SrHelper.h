@@ -13,7 +13,6 @@
 #include "model_path.h"
 #include "esp_afe_sr_models.h"
 #include "esp_afe_sr_iface.h" 
-#include "esp_event.h"
 #include "esp_mac.h"
 
 #define SAMPLE_RATE 16000
