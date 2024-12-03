@@ -4,11 +4,11 @@
 #include "freertos/task.h"
 #include "mqtt_client.h"
 
-
 void mqtt_init(esp_mqtt_client_config_t mqtt_cfg, esp_event_handler_t callback);
 
 void mqtt_register_callback(esp_event_handler_t callback);
 
+void mqtt_publish_topic(char* topic);
 void mqtt_publish(char* cmd);
 
 void mqtt_subscribe(char* topic);
