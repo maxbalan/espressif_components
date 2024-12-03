@@ -9,4 +9,6 @@ void mqtt_init(esp_mqtt_client_config_t mqtt_cfg, esp_event_handler_t callback);
 
 void mqtt_register_callback(esp_event_handler_t callback);
 
-void mqtt_publish(char* topic, char* cmd);
+void mqtt_publish(char* cmd);
+
+void mqtt_subscribe(char* topic);

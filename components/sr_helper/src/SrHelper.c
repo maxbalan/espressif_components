@@ -1,7 +1,7 @@
 #include "SrHelper.h"
 
 // #ifdef DEBUG_ENABLED
-static const char *TAG = "SR >>> ";
+static const char *TAG = "SR";
 // #endif
 
 ESP_EVENT_DECLARE_BASE(SR_EVENT);
