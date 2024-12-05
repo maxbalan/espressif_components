@@ -26,11 +26,13 @@ static void wifi_event_handler(void *arg,
     } else if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_DISCONNECTED) {
         ESP_LOGW(TAG, "Disconnected from Wi-Fi, retrying...");
         esp_wifi_connect();
+    } else {
+        ESP_LOGW(TAG, "event unknown %ld", event_id);
     }
 }
 
-void connectWifi(wifi_config_t wifiConfig) {
-    ESP_LOGI(TAG, "connecting WIFI SSID:%s password:%s", wifiConfig.sta.ssid, wifiConfig.sta.password);
+void connectWifi(wifi_config_t wifiConfig, const char *deviceHostname) {
+    ESP_LOGI(TAG, "[%s] is connecting WIFI SSID:%s password:%s", deviceHostname, wifiConfig.sta.ssid, wifiConfig.sta.password);
     esp_event_loop_create_default();
 
     ESP_ERROR_CHECK(esp_netif_init());
@@ -52,6 +54,21 @@ void connectWifi(wifi_config_t wifiConfig) {
 
     //     init wifi
     esp_netif_create_default_wifi_sta();
+
+    // set host name
+    esp_netif_t *netif = esp_netif_get_handle_from_ifkey("WIFI_STA_DEF");
+    if (netif) {
+        esp_err_t err = esp_netif_set_hostname(netif, deviceHostname);
+        if (err == ESP_OK) {
+            ESP_LOGI(TAG, "Hostname set to: %s", deviceHostname);
+        } else {
+            ESP_LOGE(TAG, "Failed to set hostname: %s", esp_err_to_name(err));
+        }
+    } else {
+        ESP_LOGE(TAG, "Failed to retrieve network interface for setting hostname");
+    }
+
+    // wifi init
     wifi_init_config_t wifiInitConfig = WIFI_INIT_CONFIG_DEFAULT();
     ESP_ERROR_CHECK(esp_wifi_init(&wifiInitConfig));
 

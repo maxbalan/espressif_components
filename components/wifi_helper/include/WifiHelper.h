@@ -6,4 +6,4 @@
 #include "freertos/event_groups.h"
 #include "lwip/err.h"
 
-void connectWifi(wifi_config_t wifiConfig);
+void connectWifi(wifi_config_t wifiConfig, const char* deviceHostName);
