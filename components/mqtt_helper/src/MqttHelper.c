@@ -27,4 +27,5 @@ void mqtt_publish_topic(char* topic) {
 
 void mqtt_publish(char* cmd) {
     esp_mqtt_client_publish(mqtt_client, mqtt_helper_topic, cmd, 0, 1, 0);
+    free(cmd);
 }
