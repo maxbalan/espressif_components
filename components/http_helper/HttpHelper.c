@@ -163,7 +163,7 @@ http_client_json_response http_client_upload_file(http_client_config config) {
         return response;
     }
 
-    ESP_LOGI(TAG, "Init http connection");
+    ESP_LOGI(TAG, "Init http connection [%s]", config.url);
 
     // calculate file size
     fseek(file, 0, SEEK_END);
