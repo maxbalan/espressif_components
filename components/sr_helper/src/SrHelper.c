@@ -38,7 +38,7 @@ void sr_trigger_event(sr_event_t event) {
 void record_task(void *arg) {
     char *filePath = arg;
     int flash_wr_size = 0;
-    uint32_t flash_rec_time = BYTE_RATE * 1;
+    uint32_t flash_rec_time = BYTE_RATE * 3;
     const wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(flash_rec_time, 16, SAMPLE_RATE, 1);
 
     struct stat st;
@@ -84,7 +84,7 @@ void record_task(void *arg) {
 }
 
 void wav_record(char *filePath) {
-    xTaskCreatePinnedToCore(&record_task, "record", 8 * 1024, (void *)filePath, 5, NULL, 0);
+    xTaskCreatePinnedToCore(&record_task, "record", 10 * 1024, (void *)filePath, 10, NULL, 0);
 }
 
 // --------------------- feed process ----------------------------------------
@@ -135,7 +135,7 @@ void feed_task(void *arg) {
 }
 
 void start_feed() {
-    xTaskCreatePinnedToCore(&feed_task, "feed", 8 * 1024, NULL, 5, NULL, 1);
+    xTaskCreatePinnedToCore(&feed_task, "feed", 10 * 1024, NULL, 5, NULL, 1);
 }
 
 void stop_feed() {

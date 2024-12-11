@@ -16,7 +16,7 @@
 #include "esp_mac.h"
 
 #define SAMPLE_RATE 16000
-#define BYTE_RATE (SAMPLE_RATE * (32 / 8)) * 1
+#define BYTE_RATE (SAMPLE_RATE * (32 / 16)) * 1
 
 // setup
 esp_afe_sr_iface_t sr_init(afe_config_t config, i2s_std_gpio_config_t micConfig);
