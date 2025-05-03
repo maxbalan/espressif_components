@@ -11,7 +11,7 @@ static esp_afe_sr_iface_t *afe_handle = NULL;
 static esp_afe_sr_data_t *afe_data = NULL;
 i2s_chan_handle_t rx_handle = NULL;
 
-bool is_feed_active = true;
+bool is_feed_active = false;
 bool continue_wakeword_detection = true;
 bool wakeword_detection_stop = true;
 
@@ -36,13 +36,22 @@ void sr_trigger_event(sr_event_t event) {
 
 // --------------------- recording process ----------------------------------------
 void record_task(void *arg) {
+    if (sdcard_lock_access("sr-file-record") != pdTRUE) {
+        ESP_LOGE(TAG, "failed to lock sdcard");
+        sr_trigger_event(RECORDING_FAIL);
+        stop_feed();
+        vTaskDelete(NULL);
+        return;
+    }
+
     char *filePath = arg;
     int flash_wr_size = 0;
     uint32_t flash_rec_time = BYTE_RATE * 3;
-    const wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(flash_rec_time, 16, SAMPLE_RATE, 1);
-
+    const wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(flash_rec_time, BITS_PER_SAMPLE, SAMPLE_RATE, CHANNELS);
     struct stat st;
+   
     ESP_LOGI(TAG, "Check file exists");
+   
     if (stat(filePath, &st) == 0) {
         // Delete it if it exists
         unlink(filePath);
@@ -50,25 +59,36 @@ void record_task(void *arg) {
 
     // Create new WAV file
     ESP_LOGI(TAG, "Opening file for recording");
-    FILE *f = fopen(filePath, "a");
+    
+    FILE *f = fopen(filePath, "wb");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing [%s]", filePath);
+       
         sr_trigger_event(RECORDING_FAIL);
+        stop_feed();
+        sdcard_give_access();
+        vTaskDelete(NULL);
         return;
     }
 
+    start_feed();
+
     // Write the header to the WAV file
     ESP_LOGI(TAG, "write WAV header");
+    
     fwrite(&wav_header, sizeof(wav_header), 1, f);
 
     // fetch and record audio to file
     ESP_LOGI(TAG, "Fetch Data");
+   
+    bool is_success = true;
     while (flash_wr_size < flash_rec_time) {
         afe_fetch_result_t *res = afe_handle->fetch(afe_data);
 
         if (!res || res->ret_value == ESP_FAIL) {
             ESP_LOGI(TAG, "data fetch error\n");
-            sr_trigger_event(RECORDING_FAIL);
+           
+            is_success = false;
             break;
         }
 
@@ -76,10 +96,20 @@ void record_task(void *arg) {
         flash_wr_size += res->data_size;
     }
 
-    ESP_LOGI(TAG, "Recording done [%s]", filePath);
-
-    sr_trigger_event(RECORDING_SUCCESS);
     fclose(f);
+    sdcard_give_access();
+    stop_feed();
+
+    if (is_success) {
+        ESP_LOGI(TAG, "Recording succeeded [%s]", filePath);
+
+        sr_trigger_event(RECORDING_SUCCESS);
+    } else {
+        ESP_LOGI(TAG, "Recording failed [%s]", filePath);
+
+        sr_trigger_event(RECORDING_FAIL);
+    }
+
     vTaskDelete(NULL);
 }
 
@@ -129,13 +159,18 @@ void feed_task(void *arg) {
 
     ESP_LOGI(TAG, "Feeding task stopped");
 
-    is_feed_active = true;
     sr_trigger_event(SR_FEED_STOP);
     vTaskDelete(NULL);
 }
 
 void start_feed() {
-    xTaskCreatePinnedToCore(&feed_task, "feed", 10 * 1024, NULL, 5, NULL, 1);
+    // prevent multiple feed calls
+    if (!is_feed_active) {
+        is_feed_active = true;
+        xTaskCreatePinnedToCore(&feed_task, "feed", 10 * 1024, NULL, 5, NULL, 1);
+    } else {
+        ESP_LOGI(TAG, "feed already in progress");
+    }
 }
 
 void stop_feed() {
@@ -149,18 +184,18 @@ void wakeup_word_detect_task(void *arg) {
     //     int detect_flag = false;
     // int afe_chunksize = afe_handle->get_fetch_chunksize(afe_data);
 
-    ESP_LOGI(TAG, "wakeup word detect start\n");
+    ESP_LOGI(TAG, "wakeup word detect start");
 
     sr_trigger_event(SR_WAKEWORD_START);
     while (true && continue_wakeword_detection) {
         afe_fetch_result_t *res = afe_handle->fetch(afe_data);
         if (!res || res->ret_value == ESP_FAIL) {
-            ESP_LOGI(TAG, "data fetch error\n");
+            ESP_LOGE(TAG, "data fetch error");
             break;
         }
 
         if (res->wakeup_state == WAKENET_DETECTED) {
-            ESP_LOGI(TAG, "WAKEWORD DETECTED\n");
+            ESP_LOGI(TAG, "WAKEWORD DETECTED");
 
             sr_trigger_event(SR_WAKEWORD_DETECTED);
 
@@ -171,14 +206,17 @@ void wakeup_word_detect_task(void *arg) {
         }
     }
 
-    ESP_LOGI(TAG, "wakeup word detect exit\n");
+    stop_feed();
+
+    ESP_LOGI(TAG, "wakeup word detect exit");
 
     sr_trigger_event(SR_WAKEWORD_STOP);
     vTaskDelete(NULL);
 }
 
 void start_wakeup_listener() {
-    xTaskCreatePinnedToCore(&wakeup_word_detect_task, "detect", 8 * 1024, (void *)afe_data, 5, NULL, 1);
+    start_feed();
+    xTaskCreatePinnedToCore(&wakeup_word_detect_task, "detect", 8 * 1024, (void *)afe_data, 10, NULL, 1);
 }
 
 void stop_wakeup_listener() {
@@ -190,7 +228,7 @@ esp_err_t init_microphone(i2s_std_gpio_config_t config) {
     esp_err_t ret_val = ESP_OK;
 
     /* RX channel will be registered on our second I2S (for now)*/
-    i2s_chan_config_t rx_chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_0, I2S_ROLE_MASTER);
+    i2s_chan_config_t rx_chan_cfg = I2S_CHANNEL_DEFAULT_CONFIG(I2S_NUM_AUTO, I2S_ROLE_MASTER);
     i2s_new_channel(&rx_chan_cfg, NULL, &rx_handle);
     i2s_std_config_t std_rx_cfg = {
         .clk_cfg = I2S_STD_CLK_DEFAULT_CONFIG(SAMPLE_RATE),

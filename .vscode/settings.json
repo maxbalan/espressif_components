@@ -15,5 +15,6 @@
           "errno.h": "c"
      },
      "idf.adapterTargetName": "esp32s3",
-     "idf.flashType": "UART"
+     "idf.flashType": "UART",
+     "idf.pythonInstallPath": "/usr/bin/python3"
 }
