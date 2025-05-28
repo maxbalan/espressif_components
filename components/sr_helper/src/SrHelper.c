@@ -49,9 +49,9 @@ void record_task(void *arg) {
     uint32_t flash_rec_time = BYTE_RATE * 3;
     const wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(flash_rec_time, BITS_PER_SAMPLE, SAMPLE_RATE, CHANNELS);
     struct stat st;
-   
+
     ESP_LOGI(TAG, "Check file exists");
-   
+
     if (stat(filePath, &st) == 0) {
         // Delete it if it exists
         unlink(filePath);
@@ -59,11 +59,11 @@ void record_task(void *arg) {
 
     // Create new WAV file
     ESP_LOGI(TAG, "Opening file for recording");
-    
+
     FILE *f = fopen(filePath, "wb");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing [%s]", filePath);
-       
+
         sr_trigger_event(RECORDING_FAIL);
         stop_feed();
         sdcard_give_access();
@@ -75,19 +75,19 @@ void record_task(void *arg) {
 
     // Write the header to the WAV file
     ESP_LOGI(TAG, "write WAV header");
-    
+
     fwrite(&wav_header, sizeof(wav_header), 1, f);
 
     // fetch and record audio to file
     ESP_LOGI(TAG, "Fetch Data");
-   
+
     bool is_success = true;
     while (flash_wr_size < flash_rec_time) {
         afe_fetch_result_t *res = afe_handle->fetch(afe_data);
 
         if (!res || res->ret_value == ESP_FAIL) {
             ESP_LOGI(TAG, "data fetch error\n");
-           
+
             is_success = false;
             break;
         }
@@ -262,10 +262,21 @@ esp_afe_sr_iface_t sr_init(afe_config_t config, i2s_std_gpio_config_t micConfig)
     init_microphone(micConfig);
 
     srmodel_list_t *models = esp_srmodel_init("model");
+
+    ESP_LOGE(TAG, "model count [%d]", models->num);
+
+    for (int i = 0; i < models->num; i++) {
+        ESP_LOGE(TAG, "listing model [%s]", models->model_name[i]);
+    }
+
     config.wakenet_init = true;
     config.wakenet_model_name = esp_srmodel_filter(models, ESP_WN_PREFIX, NULL);
 
-    ESP_LOGI(TAG, "wake word model used:%s\n", esp_srmodel_filter(models, ESP_WN_PREFIX, NULL));
+    if (config.wakenet_model_name == NULL) {
+        ESP_LOGE(TAG, "failed to load WN model");
+    }
+
+    ESP_LOGI(TAG, "wake word model used [%s]", config.wakenet_model_name);
 
     afe_handle = (esp_afe_sr_iface_t *)&ESP_AFE_SR_HANDLE;
     afe_data = afe_handle->create_from_config(&config);
