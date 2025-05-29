@@ -263,10 +263,10 @@ esp_afe_sr_iface_t sr_init(afe_config_t config, i2s_std_gpio_config_t micConfig)
 
     srmodel_list_t *models = esp_srmodel_init("model");
 
-    ESP_LOGE(TAG, "model count [%d]", models->num);
+    ESP_LOGI(TAG, "model count [%d]", models->num);
 
     for (int i = 0; i < models->num; i++) {
-        ESP_LOGE(TAG, "listing model [%s]", models->model_name[i]);
+        ESP_LOGI(TAG, "listing model [%s]", models->model_name[i]);
     }
 
     config.wakenet_init = true;
