@@ -129,6 +129,7 @@ void http_client_download_file(http_client_config config) {
 
     // Free the buffer after use
     free(buffer);
+    f_sync(f);
     fclose(f);
     esp_http_client_cleanup(client);
 

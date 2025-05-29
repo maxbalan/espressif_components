@@ -2,6 +2,7 @@
 #include "esp_http_client.h"
 #include "esp_log.h"
 #include "esp_mac.h"
+#include "esp_vfs_fat.h"
 
 #ifndef __http_helper_h__
 #define __http_helper_h__

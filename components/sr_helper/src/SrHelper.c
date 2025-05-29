@@ -1,4 +1,5 @@
 #include "SrHelper.h"
+#include "esp_vfs_fat.h"
 
 // #ifdef DEBUG_ENABLED
 static const char *TAG = "SR";
@@ -96,6 +97,7 @@ void record_task(void *arg) {
         flash_wr_size += res->data_size;
     }
 
+    f_sync(f);
     fclose(f);
     sdcard_give_access();
     stop_feed();
