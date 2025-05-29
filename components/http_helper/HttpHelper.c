@@ -117,11 +117,13 @@ void http_client_download_file(http_client_config config) {
     }
 
     int read_len;
+    int64_t total_read = 0;
     while ((read_len = esp_http_client_read(client, buffer, buffer_size)) > 0) {
         fwrite(buffer, 1, read_len, f);
 
         if (config.enable_read_logs) {
-            ESP_LOGI(TAG, "read bytes %d", read_len);
+            total_read += read_len;
+            ESP_LOGI(TAG, "downloaded bytes %jd", total_read);
         }
     }
 
@@ -130,7 +132,7 @@ void http_client_download_file(http_client_config config) {
     fclose(f);
     esp_http_client_cleanup(client);
 
-    ESP_LOGI(TAG, "Downloaded %d bytes to %s", (int)total_len, config.file_location.path);
+    ESP_LOGI(TAG, "Downloaded %jd bytes to %s", total_len, config.file_location.path);
 }
 
 http_client_json_response http_client_request(http_client_config config) {

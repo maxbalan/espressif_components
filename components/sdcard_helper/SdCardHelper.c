@@ -32,7 +32,7 @@ SdCard sdcard_mount(sdcard_config config) {
         .sclk_io_num = config.pin_mode.clk,
         .quadwp_io_num = -1,
         .quadhd_io_num = -1,
-        .max_transfer_sz = 4092,
+        .max_transfer_sz = 8192,
     };
 
     ret = spi_bus_initialize(host.slot, &bus_cfg, SDSPI_DEFAULT_DMA);
@@ -106,12 +106,12 @@ void sdcard_create_file(SdCard *card, const char *file_path) {
         FILE *file = fopen(file_path, "w");
         if (file) {
             fclose(file);
-            printf("File created successfully: %s\n", file_path);
+            ESP_LOGI(TAG, "File created successfully: %s\n", file_path);
         } else {
-            printf("Error: Couldn't create file %s\n", file_path);
+            ESP_LOGE(TAG, "Error: Couldn't create file %s\n", file_path);
         }
     } else {
-        printf("Error: No directory separator found in the path.\n");
+        ESP_LOGE(TAG, "Error: No directory separator found in the path.\n");
         free(dir_path);
     }
 }
