@@ -12,6 +12,16 @@ SdCard sdcard_mount(sdcard_config config) {
     SdCard sd_card;
     esp_err_t ret;
 
+    gpio_pullup_en(config.pin_mode.miso);
+    gpio_pullup_en(config.pin_mode.cs);
+    gpio_pullup_dis(config.pin_mode.clk);
+    gpio_pullup_dis(config.pin_mode.mosi);
+
+    gpio_pulldown_dis(config.pin_mode.clk);
+    gpio_pulldown_dis(config.pin_mode.mosi);
+    gpio_pulldown_dis(config.pin_mode.miso);
+    gpio_pulldown_dis(config.pin_mode.cs);
+
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = false,
         .max_files = 5,
