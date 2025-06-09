@@ -182,7 +182,7 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     }
 
     // Read and send the file
-    char buffer[1024];
+    char buffer[4096];
     size_t bytes_read;
     int counter = 0;
     esp_err_t http_ret = 0;
