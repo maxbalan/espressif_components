@@ -201,7 +201,7 @@ void record_task(void *arg) {
     size_t bytes_remaining = bytes_collected;
     size_t offset = 0;
     while (bytes_remaining > 0) {
-        size_t chunk_to_write = bytes_remaining > 4096 ? 4096 : bytes_remaining;
+        size_t chunk_to_write = bytes_remaining > 10000 ? 10000 : bytes_remaining;
         written = fwrite(audio_buffer + offset, 1, chunk_to_write, fp);
         if (written != chunk_to_write) {
             ESP_LOGE(TAG, "Failed to write audio data to %s, wrote %d/%d bytes",

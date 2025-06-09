@@ -19,7 +19,9 @@
 #define SAMPLE_RATE 16000
 #define BITS_PER_SAMPLE 16
 #define CHANNELS 1
+#define RECORD_SECONDS 3
 #define BYTE_RATE (SAMPLE_RATE * (BITS_PER_SAMPLE / 8) * CHANNELS)  // 16000 * 2 = 32000 bytes per second
+#define BUFFER_SIZE (SAMPLE_RATE * (BITS_PER_SAMPLE / 8) * CHANNELS * RECORD_SECONDS)
 
 // setup
 esp_afe_sr_iface_t sr_init(afe_config_t config, i2s_std_gpio_config_t micConfig);
