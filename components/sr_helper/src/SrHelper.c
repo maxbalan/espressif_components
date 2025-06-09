@@ -105,13 +105,12 @@ void sr_trigger_event(sr_event_t event) {
 //     vTaskDelete(NULL);
 // }
 
-#define CHUNK_SIZE 4096  // Smaller chunk size for I2S reads
-
-void record_task(void *arg) {
+void record_task_read_mic(void *arg) {
     char *filePath = (char *)arg;
     esp_err_t ret = ESP_OK;
     size_t bytes_read;
     int16_t *audio_buffer = malloc(BUFFER_SIZE);
+    int chunk_size = 4096;
     if (!audio_buffer) {
         ESP_LOGE(TAG, "Failed to allocate memory for audio buffer (%d bytes)", BUFFER_SIZE);
         sr_trigger_event(RECORDING_FAIL);
@@ -130,9 +129,9 @@ void record_task(void *arg) {
     }
 
     // Allocate temp buffer once outside the loop
-    int32_t *temp_buffer = (int32_t *)malloc(CHUNK_SIZE * 2);
+    int32_t *temp_buffer = (int32_t *)malloc(chunk_size * 2);
     if (!temp_buffer) {
-        ESP_LOGE(TAG, "Failed to allocate temporary buffer (%d bytes)", CHUNK_SIZE * 2);
+        ESP_LOGE(TAG, "Failed to allocate temporary buffer (%d bytes)", chunk_size * 2);
         free(audio_buffer);
         sr_trigger_event(RECORDING_FAIL);
         vTaskDelete(NULL);
@@ -148,7 +147,7 @@ void record_task(void *arg) {
 
     // Read audio data
     while (bytes_collected < bytes_to_read) {
-        size_t chunk_size = (bytes_to_read - bytes_collected) > CHUNK_SIZE ? CHUNK_SIZE : (bytes_to_read - bytes_collected);
+        size_t chunk_size = (bytes_to_read - bytes_collected) > chunk_size ? chunk_size : (bytes_to_read - bytes_collected);
         ret = i2s_channel_read(rx_handle, temp_buffer, chunk_size * 2, &bytes_read, portMAX_DELAY);
         if (ret != ESP_OK) {
             ESP_LOGE(TAG, "I2S read error: %s", esp_err_to_name(ret));
