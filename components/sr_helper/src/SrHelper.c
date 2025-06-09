@@ -105,7 +105,7 @@ void sr_trigger_event(sr_event_t event) {
 //     vTaskDelete(NULL);
 // }
 
-#define CHUNK_SIZE 1024  // Smaller chunk size for I2S reads
+#define CHUNK_SIZE 4096  // Smaller chunk size for I2S reads
 
 void record_task(void *arg) {
     char *filePath = (char *)arg;
