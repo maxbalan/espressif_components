@@ -175,6 +175,67 @@ void sr_trigger_event(sr_event_t event) {
 //     vTaskDelete(NULL);
 // }
 
+esp_err_t write_file(char *filePath, int16_t *audio_buffer, int bytes_collected) {
+    // Create WAV header using the provided macro
+    wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(
+        bytes_collected,  // wav_sample_size
+        BITS_PER_SAMPLE,  // wav_sample_bits
+        SAMPLE_RATE,      // wav_sample_rate
+        CHANNELS          // wav_channel_num
+    );
+
+    // remove file if exists
+    struct stat st;
+    if (stat(filePath, &st) == 0) {
+        unlink(filePath);
+        ESP_LOGI(TAG, "file [%s] removed", filePath);
+    }
+
+    // Open file for writing
+    FILE *fp = fopen(filePath, "wb");
+    if (!fp) {
+        ESP_LOGE(TAG, "Failed to open file %s for writing", filePath);
+        stop_feed();
+        return ESP_FAIL;
+    }
+
+    // Write WAV header
+    size_t written = fwrite(&wav_header, sizeof(wav_header), 1, fp);
+    if (written != 1) {
+        ESP_LOGE(TAG, "Failed to write WAV header to %s", filePath);
+        fclose(fp);
+        return ESP_FAIL;
+    }
+
+    ESP_LOGI(TAG, "Writing audio buffer to file: %d", bytes_collected);
+
+    // Write audio data in chunks to handle large buffers
+    size_t bytes_remaining = bytes_collected;
+    size_t offset = 0;
+    while (bytes_remaining > 0) {
+        size_t chunk_to_write = bytes_remaining > 10000 ? 10000 : bytes_remaining;
+        written = fwrite(audio_buffer + offset, 1, chunk_to_write, fp);
+        
+        if (written != chunk_to_write) {
+            ESP_LOGE(TAG, "Failed to write audio data to %s, wrote %d/%d bytes",filePath, written, chunk_to_write);
+        
+            fclose(fp);
+
+            return ESP_FAIL;
+        }
+        
+        bytes_remaining -= written;
+        offset += written / sizeof(int16_t);
+        // ESP_LOGI(TAG, "Wrote %d bytes, remaining: %d/%d", written, bytes_remaining, bytes_collected);
+    }
+
+    ESP_LOGI(TAG, "Written audio buffer to file, remaining: %d/%d", bytes_remaining, bytes_collected);
+
+    fclose(fp);
+
+    return ESP_OK;
+}
+
 esp_err_t record_to_file(void *arg) {
     char *filePath = (char *)arg;
     esp_err_t ret = ESP_OK;
@@ -187,16 +248,6 @@ esp_err_t record_to_file(void *arg) {
         return ESP_FAIL;
     }
 
-    // Open file for writing
-    FILE *fp = fopen(filePath, "wb");
-    if (!fp) {
-        ESP_LOGE(TAG, "Failed to open file %s for writing", filePath);
-        stop_feed();
-        free(audio_buffer);
-        sr_trigger_event(RECORDING_FAIL);
-        return ESP_FAIL;
-    }
-
     // Get AFE chunk size and allocate temp buffer
     int afe_chunk_size = afe_handle->get_fetch_chunksize(afe_data);
     int16_t *temp_buffer = (int16_t *)malloc(afe_chunk_size * sizeof(int16_t));
@@ -204,7 +255,6 @@ esp_err_t record_to_file(void *arg) {
         ESP_LOGE(TAG, "Failed to allocate temporary buffer (%d bytes)", afe_chunk_size * sizeof(int16_t));
         stop_feed();
         free(audio_buffer);
-        fclose(fp);
         sr_trigger_event(RECORDING_FAIL);
         return ESP_FAIL;
     }
@@ -224,7 +274,6 @@ esp_err_t record_to_file(void *arg) {
             stop_feed();
             free(temp_buffer);
             free(audio_buffer);
-            fclose(fp);
             sr_trigger_event(RECORDING_FAIL);
             return ESP_FAIL;
         }
@@ -244,53 +293,21 @@ esp_err_t record_to_file(void *arg) {
     // stop the feed since we no longer need the data
     stop_feed();
 
-    free(temp_buffer);  // Free temp buffer after loop
+    for (int i = 0; i < 3; i++) {
+        ESP_LOGI(TAG, "try writing to file: %s", filePath);
 
-    // Create WAV header using the provided macro
-    wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(
-        bytes_collected,  // wav_sample_size
-        BITS_PER_SAMPLE,  // wav_sample_bits
-        SAMPLE_RATE,      // wav_sample_rate
-        CHANNELS          // wav_channel_num
-    );
-
-    // Write WAV header
-    size_t written = fwrite(&wav_header, sizeof(wav_header), 1, fp);
-    if (written != 1) {
-        ESP_LOGE(TAG, "Failed to write WAV header to %s", filePath);
-        fclose(fp);
-        free(audio_buffer);
-        sr_trigger_event(RECORDING_FAIL);
-        return ESP_FAIL;
-    }
-
-    ESP_LOGI(TAG, "Writing audio buffer to file: %d", bytes_collected);
-
-    // Write audio data in chunks to handle large buffers
-    size_t bytes_remaining = bytes_collected;
-    size_t offset = 0;
-    while (bytes_remaining > 0) {
-        size_t chunk_to_write = bytes_remaining > 10000 ? 10000 : bytes_remaining;
-        written = fwrite(audio_buffer + offset, 1, chunk_to_write, fp);
-        if (written != chunk_to_write) {
-            ESP_LOGE(TAG, "Failed to write audio data to %s, wrote %d/%d bytes",
-                     filePath, written, chunk_to_write);
-            fclose(fp);
-            free(audio_buffer);
+        esp_err_t res = write_file(filePath, audio_buffer, bytes_collected);
+        if (res == ESP_OK) {
+            sr_trigger_event(RECORDING_SUCCESS);
+            break;
+        } else if (i == 2) {
             sr_trigger_event(RECORDING_FAIL);
-            return ESP_FAIL;
+            break;
         }
-        bytes_remaining -= written;
-        offset += written / sizeof(int16_t);
-        // ESP_LOGI(TAG, "Wrote %d bytes, remaining: %d/%d", written, bytes_remaining, bytes_collected);
     }
 
-    ESP_LOGI(TAG, "Written audio buffer to file, remaining: %d/%d", bytes_remaining, bytes_collected);
-
-    fclose(fp);
+    free(temp_buffer);  // Free temp buffer after loop
     free(audio_buffer);
-
-    sr_trigger_event(RECORDING_SUCCESS);
 
     return ESP_OK;
 }
@@ -364,11 +381,10 @@ void start_feed() {
 
 void stop_feed() {
     is_feed_active = false;
-    afe_handle->reset_buffer(afe_data); 
+    afe_handle->reset_buffer(afe_data);
 }
 
 // --------------------- wakeword process ----------------------------------------
-
 void wakeup_word_detect_task(void *arg) {
     esp_afe_sr_data_t *afe_data = arg;
     //     int detect_flag = false;
