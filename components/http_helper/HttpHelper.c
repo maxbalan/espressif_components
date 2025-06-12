@@ -92,7 +92,7 @@ http_client_json_response read_json_response(response_handler config, esp_http_c
 }
 
 void http_client_download_file(http_client_config config) {
-    FILE* f = fopen(config.file_location.path, "wb");
+    FILE* f = fopen(config.download.file_config.path, "wb");
     if (f == NULL) {
         ESP_LOGE(TAG, "Failed to open file for writing");
         return;
@@ -133,7 +133,7 @@ void http_client_download_file(http_client_config config) {
     fclose(f);
     esp_http_client_cleanup(client);
 
-    ESP_LOGI(TAG, "Downloaded %jd bytes to %s", total_len, config.file_location.path);
+    ESP_LOGI(TAG, "Downloaded %jd bytes to %s", total_len, config.download.file_config.path);
 }
 
 http_client_json_response http_client_request(http_client_config config) {
@@ -154,19 +154,19 @@ http_client_json_response http_client_request(http_client_config config) {
     return r;
 }
 
-http_client_json_response http_client_upload_file(http_client_config config) {
+http_client_json_response http_client_upload_file(http_client_config client_config) {
     http_client_json_response response = JSON_RESPONSE_NULL();
-
+    http_client_upload_file_t config = client_config.upload.file_config;
     // open file for read
-    ESP_LOGI(TAG, "Opening file [%s]", config.file_location.path);
+    ESP_LOGI(TAG, "Opening file [%s]", config.path);
 
-    FILE* file = fopen(config.file_location.path, "rb");
+    FILE* file = fopen(config.path, "rb");
     if (file == NULL) {
         ESP_LOGE(TAG, "Failed to open file for reading");
         return response;
     }
 
-    ESP_LOGI(TAG, "Init http connection [%s]", config.url);
+    ESP_LOGI(TAG, "Init http connection [%s]", client_config.url);
 
     // calculate file size
     fseek(file, 0, SEEK_END);
@@ -176,7 +176,7 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     ESP_LOGI(TAG, "upload size: %ld", content_length);
 
     // Open the HTTP connection
-    esp_http_client_handle_t client = init_connection(config, (int)content_length);
+    esp_http_client_handle_t client = init_connection(client_config, (int)content_length);
     if (client == NULL) {
         return response;
     }
@@ -213,12 +213,90 @@ http_client_json_response http_client_upload_file(http_client_config config) {
     ESP_LOGI(TAG, "uploaded done: %d bytes left to upload", (counter - (int)content_length));
 
     // read response if one is expected
-    if (config.response_handler.type == JSON) {
-        response = read_json_response(config.response_handler, client);
+    if (client_config.response_handler.type == JSON) {
+        response = read_json_response(client_config.response_handler, client);
     }
 
     // Clean up
     esp_http_client_cleanup(client);
 
     return response;
+}
+
+http_client_json_response http_client_upload_data(http_client_config client_config) {
+    http_client_json_response response = JSON_RESPONSE_NULL();
+    http_client_upload_buffer_t config = client_config.upload.buffer_config;
+
+    // Validate data buffer
+    if (config.data_buffer == NULL || config.data_buffer_size == 0) {
+        ESP_LOGE(TAG, "Provided data buffer is empty or invalid");
+        return response;
+    }
+
+    ESP_LOGI(TAG, "Init http connection [%s]", client_config.url);
+
+    // Get content length from buffer size
+    uint32_t content_length = config.data_buffer_size;
+
+    ESP_LOGI(TAG, "Upload size: %ld bytes", content_length);
+
+    // Open the HTTP connection
+    esp_http_client_handle_t client = init_connection(client_config, (int)content_length);
+    if (client == NULL) {
+        ESP_LOGE(TAG, "Failed to initialize HTTP connection");
+        return response;
+    }
+
+    // Send the buffer in chunks
+    char buffer[4096];
+    size_t bytes_remaining = content_length;
+    size_t offset = 0;
+    int counter = 0;
+    esp_err_t http_ret = ESP_OK;
+
+    while (bytes_remaining > 0) {
+        size_t bytes_to_send = bytes_remaining > sizeof(buffer) ? sizeof(buffer) : bytes_remaining;
+        memcpy(buffer, config.data_buffer + offset, bytes_to_send);
+
+        http_ret = esp_http_client_write(client, buffer, bytes_to_send);
+        if (http_ret < 0) {
+            ESP_LOGE(TAG, "Failed to send chunk: %s", esp_err_to_name(http_ret));
+            break;
+        } else {
+            counter += bytes_to_send;
+            offset += bytes_to_send;
+            bytes_remaining -= bytes_to_send;
+            ESP_LOGI(TAG, "Uploaded: %d/%ld bytes", counter, (long)content_length);
+        }
+    }
+
+    if (http_ret < 0) {
+        ESP_LOGE(TAG, "Data upload failed: %s", esp_err_to_name(http_ret));
+        esp_http_client_cleanup(client);
+        return response;
+    }
+
+    ESP_LOGI(TAG, "Upload complete: %d bytes uploaded", counter);
+
+    // Read response if expected
+    if (client_config.response_handler.type == JSON) {
+        response = read_json_response(client_config.response_handler, client);
+    }
+
+    // Clean up
+    esp_http_client_cleanup(client);
+
+    return response;
+}
+
+// Main upload dispatcher
+http_client_json_response http_client_upload(http_client_config config) {
+    if (config.upload.file_config.path != NULL) {
+        return http_client_upload_file(config);
+    } else if (config.upload.buffer_config.data_buffer != NULL) {
+        return http_client_upload_data(config);
+    }
+
+    ESP_LOGE(TAG, "Invalid data upload provided");
+    return (http_client_json_response) JSON_RESPONSE_NULL();
 }
