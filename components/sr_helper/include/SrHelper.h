@@ -1,19 +1,21 @@
+#pragma once
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <sys/stat.h>
 #include <sys/unistd.h>
 
-#include "esp_log.h"
 #include "driver/i2s_std.h"
+#include "esp_afe_sr_iface.h"
+#include "esp_afe_sr_models.h"
+#include "esp_event.h"
+#include "esp_log.h"
+#include "esp_mac.h"
 #include "format_wav.h"
 #include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
 #include "freertos/event_groups.h"
-#include "esp_event.h"
+#include "freertos/task.h"
 #include "model_path.h"
-#include "esp_afe_sr_models.h"
-#include "esp_afe_sr_iface.h" 
-#include "esp_mac.h"
 #include "synchroniser.h"
 
 #define SAMPLE_RATE 16000
@@ -22,6 +24,11 @@
 #define RECORD_SECONDS 3
 #define BYTE_RATE (SAMPLE_RATE * (BITS_PER_SAMPLE / 8) * CHANNELS)  // 16000 * 2 = 32000 bytes per second
 #define BUFFER_SIZE ((SAMPLE_RATE * (BITS_PER_SAMPLE / 8) * CHANNELS) * RECORD_SECONDS)
+
+typedef struct {
+    uint8_t* data_buffer;
+    uint32_t data_buffer_size;
+} recording_result_t;
 
 // setup
 esp_afe_sr_iface_t sr_init(afe_config_t config, i2s_std_gpio_config_t micConfig);
@@ -35,7 +42,7 @@ void start_wakeup_listener();
 void stop_wakeup_listener();
 
 // recording
-void wav_record(char* f);
+recording_result_t* wav_record();
 
 // events setup
 typedef enum {

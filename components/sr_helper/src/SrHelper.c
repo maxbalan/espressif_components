@@ -176,15 +176,119 @@ esp_err_t record_to_file(void *arg) {
     return ESP_OK;
 }
 
+recording_result_t* record_to_buffer() {
+    recording_result_t *result = (recording_result_t *)malloc(sizeof(recording_result_t));
+    if (!result) {
+        ESP_LOGE(TAG, "Failed to allocate recording_result_t");
+        stop_feed();
+        sr_trigger_event(RECORDING_FAIL);
+        return NULL;
+    }
+    result->data_buffer = NULL;
+    result->data_buffer_size = 0;
+
+    size_t bytes_read;
+    int16_t *audio_buffer = malloc(BUFFER_SIZE);
+    if (!audio_buffer) {
+        ESP_LOGE(TAG, "Failed to allocate memory for audio buffer (%d bytes)", BUFFER_SIZE);
+        stop_feed();
+        free(result);
+        sr_trigger_event(RECORDING_FAIL);
+        return NULL;
+    }
+
+    // Get AFE chunk size and allocate temp buffer
+    int afe_chunk_size = afe_handle->get_fetch_chunksize(afe_data);
+    int16_t *temp_buffer = (int16_t *)malloc(afe_chunk_size * sizeof(int16_t));
+    if (!temp_buffer) {
+        ESP_LOGE(TAG, "Failed to allocate temporary buffer (%d bytes)", afe_chunk_size * sizeof(int16_t));
+        stop_feed();
+        free(audio_buffer);
+        free(result);
+        sr_trigger_event(RECORDING_FAIL);
+        return NULL;
+    }
+
+    // Calculate total samples needed for 3 seconds
+    int total_samples = SAMPLE_RATE * RECORD_SECONDS;
+    int bytes_to_read = total_samples * sizeof(int16_t);
+    int bytes_collected = 0;
+
+    ESP_LOGI(TAG, "Starting 3-second audio recording, AFE chunk size: %d bytes", afe_chunk_size * sizeof(int16_t));
+
+    // Read audio data from AFE
+    while (bytes_collected < bytes_to_read) {
+        afe_fetch_result_t *res = afe_handle->fetch(afe_data);
+        if (!res || res->ret_value == ESP_FAIL) {
+            ESP_LOGE(TAG, "AFE fetch error");
+            stop_feed();
+            free(temp_buffer);
+            free(audio_buffer);
+            free(result);
+            sr_trigger_event(RECORDING_FAIL);
+            return NULL;
+        }
+
+        // Copy AFE data to audio buffer
+        size_t chunk_size = (bytes_to_read - bytes_collected) > afe_chunk_size * sizeof(int16_t) ? 
+                            afe_chunk_size * sizeof(int16_t) : (bytes_to_read - bytes_collected);
+        memcpy(temp_buffer, res->data, chunk_size);
+        memcpy(audio_buffer + (bytes_collected / sizeof(int16_t)), temp_buffer, chunk_size);
+        bytes_read = chunk_size;
+
+        bytes_collected += bytes_read;
+        // ESP_LOGI(TAG, "Read %d bytes from AFE, total collected: %d/%d", bytes_read, bytes_collected, bytes_to_read);
+    }
+
+    ESP_LOGI(TAG, "Recording done, total collected: %d/%d", bytes_collected, bytes_to_read);
+
+    // Stop the feed since we no longer need the data
+    stop_feed();
+
+    // Create WAV header
+    wav_header_t wav_header = WAV_HEADER_PCM_DEFAULT(
+        bytes_collected,  // wav_sample_size
+        BITS_PER_SAMPLE,  // wav_sample_bits
+        SAMPLE_RATE,      // wav_sample_rate
+        CHANNELS          // wav_channel_num
+    );
+
+    // Allocate output buffer for WAV file (header + audio data)
+    size_t wav_buffer_size = sizeof(wav_header_t) + bytes_collected;
+    uint8_t *wav_buffer = (uint8_t *)malloc(wav_buffer_size);
+    if (!wav_buffer) {
+        ESP_LOGE(TAG, "Failed to allocate WAV buffer (%d bytes)", wav_buffer_size);
+        free(temp_buffer);
+        free(audio_buffer);
+        free(result);
+        sr_trigger_event(RECORDING_FAIL);
+        return NULL;
+    }
+
+    // Copy header and audio data to output buffer
+    memcpy(wav_buffer, &wav_header, sizeof(wav_header_t));
+    memcpy(wav_buffer + sizeof(wav_header_t), audio_buffer, bytes_collected);
+
+    free(temp_buffer);
+    free(audio_buffer);
+
+    ESP_LOGI(TAG, "WAV buffer created, size: %d bytes", wav_buffer_size);
+    sr_trigger_event(RECORDING_SUCCESS);
+
+    result->data_buffer = wav_buffer;
+    result->data_buffer_size = wav_buffer_size;
+    
+    return result;
+}
+
 void record_task(void *arg) {
     record_to_file(arg);
     vTaskDelete(NULL);
 }
 
-void wav_record(char *filePath) {
+recording_result_t* wav_record() {
     start_feed();
-    record_to_file(filePath);
-    // xTaskCreatePinnedToCore(&record_task, "record", 10 * 1024, (void *)filePath, 10, NULL, 0);
+    return record_to_buffer();
 }
 
 // --------------------- feed process ----------------------------------------
